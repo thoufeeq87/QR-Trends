@@ -11,7 +11,14 @@ import sys
 
 import requests
 
-WEB_URL = os.environ["WEB_URL"].rstrip("/")
+def _with_scheme(url: str) -> str:
+    url = url.rstrip("/")
+    if not url.startswith(("http://", "https://")):
+        url = f"https://{url}"
+    return url
+
+
+WEB_URL = _with_scheme(os.environ["WEB_URL"])
 INGEST_SECRET = os.environ["INGEST_SECRET"]
 TIMEOUT = 120  # a full ingest run (fetch + Claude tagging) can take a while
 
