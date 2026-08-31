@@ -1,0 +1,20 @@
+# Secrets
+.env
+credentials.json
+token.json
+
+# Scratch/intermediate files
+.tmp/*
+!.tmp/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# OS/editor
+.DS_Store
