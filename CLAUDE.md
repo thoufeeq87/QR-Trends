@@ -1,4 +1,4 @@
-# QR-Trends — Agent Instructions
+# QA Pulse (QR-Trends repo) — Agent Instructions
 
 This repo is built around the **WAT framework** (Workflows, Agents, Tools). Full
 rationale and architecture: [`docs/PRD.md`](docs/PRD.md).
@@ -29,6 +29,9 @@ rationale and architecture: [`docs/PRD.md`](docs/PRD.md).
 
 ## Project status
 
-Foundation phase only — the WAT scaffold exists but the QR-Trends product scope is not
-yet defined. See `docs/PRD.md` for the roadmap and open questions. Don't assume
-product requirements that aren't written there.
+**QA Pulse**: tracks trending/stable/fading topics in software QA/testing. Core
+pipeline (ingest → Claude tagging → trend classification → dashboard) is built and
+locally validated; deployment to Railway is a manual runbook
+(`workflows/deploy_railway.md`) since dev happened without Railway account access.
+Most of the 13 sources are seeded but disabled pending URL verification post-deploy —
+see `docs/PRD.md` Phase 2. Don't assume beyond what's written there.

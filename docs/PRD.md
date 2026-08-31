@@ -1,108 +1,120 @@
-# QR-Trends — Development Plan (PRD)
+# QA Pulse — Development Plan (PRD)
 
 ## Overview
 
-**QR-Trends** is a new project. Its specific product scope (what it actually does for
-end users) has not been defined yet — that will be supplied in a follow-up. This
-document currently covers the **foundation phase only**: the technical architecture and
-conventions the project will be built on, so that once the product requirements arrive
-there is a working structure to build them into.
+**QA Pulse** is a full-stack app that tracks what topics are trending, stable, or
+fading in the software QA/testing niche. It ingests articles, forum posts, and videos
+from ~13 QA/testing sources daily, uses Claude to extract topic labels, classifies
+each topic's momentum (New / Trending / Stable / Declining) based on recent mention
+counts, and surfaces the result on a dashboard. It's built around the **WAT
+framework** established in this repo's foundation phase (see below) and deploys to
+Railway.
 
-This is a living document. Sections marked **TBD** will be filled in once product scope
-is confirmed.
+This is a living document — the sections below reflect the current build; see Roadmap
+for what's still open.
 
 ## Architecture: the WAT Framework
 
-QR-Trends is built around the **WAT framework** (Workflows, Agents, Tools). The idea:
+QA Pulse is built around the **WAT framework** (Workflows, Agents, Tools). The idea:
 keep probabilistic reasoning (the AI agent) separate from deterministic execution
 (scripts), so the system stays reliable. If each step in a chain is only ~90% reliable,
 five AI-driven steps in a row compound down to ~59% success — offloading execution to
 tested, deterministic tools avoids that decay.
 
 ### Layer 1: Workflows (`workflows/`)
-Markdown SOPs, one per task the agent needs to perform. Each workflow defines:
-- The objective
-- Required inputs
-- Which tool(s) to use, in what order
-- Expected outputs
-- How to handle edge cases / known failure modes
-
-Written in plain language, the way you'd brief a teammate — not code.
+Markdown SOPs, one per pipeline stage: `ingest_sources.md`, `tag_topics.md`,
+`classify_trends.md`, `deploy_railway.md`. Each defines the objective, required
+inputs, which tool to use, expected outputs, and edge cases.
 
 ### Layer 2: Agent (Claude Code)
-The agent is the decision-maker, not the executor:
-- Reads the relevant workflow for a given task
-- Determines required inputs, runs tools in the correct sequence
-- Handles failures gracefully, asks clarifying questions when something is ambiguous
-- Connects intent to execution without trying to hand-roll the work itself — e.g. to
-  pull data from a website, it reads `workflows/scrape_website.md`, gathers the inputs
-  that workflow calls for, then runs the matching script in `tools/`, rather than
-  scraping ad hoc.
+Reads the relevant workflow before acting, runs tools in sequence, handles failures
+gracefully. For QA Pulse specifically, the ingestion/tagging/classification tools also
+ship *inside the deployed app* and run on Railway's own cron — the agent's role during
+development was to design and validate the pipeline, not to be a runtime component of
+it.
 
 ### Layer 3: Tools (`tools/`)
-Python scripts that do the actual work: API calls, data transformations, file
-operations, database queries. Consistent, testable, fast — and the first place to look
-before writing anything new (see Conventions below).
+Python scripts doing the actual work — fetching sources, calling Claude, computing
+trend labels. See each workflow doc for the matching tool.
 
 ## Directory Layout
 
 ```
 QR-Trends/
-├── docs/
-│   └── PRD.md          # this file
-├── workflows/           # Markdown SOPs (empty until product workflows are defined)
-├── tools/                # Python scripts for deterministic execution (empty for now)
-├── .tmp/                 # Scratch/intermediate files — disposable, regenerated as needed
-├── .env.example          # Documents expected env vars; real .env is never committed
-├── .gitignore
-├── CLAUDE.md             # Repo-level agent instructions (WAT operating rules)
-└── README.md
+├── app/                      # FastAPI app (routes, DB models, pipeline orchestration)
+│   ├── main.py, config.py, db.py, queries.py, schemas.py, pipeline.py
+│   └── static/                # dashboard (plain HTML/JS/CSS, no build step)
+├── tools/                     # fetch_source.py, claude_tag_topics.py, classify_trend.py,
+│                               # seed_sources.py, trigger_ingest.py
+├── workflows/                 # ingest_sources.md, tag_topics.md, classify_trends.md,
+│                               # deploy_railway.md
+├── migrations/001_init.sql    # DB schema, applied automatically on first startup
+├── scripts/run_pipeline_local.py  # local dev validation helper
+├── docs/PRD.md                 # this file
+├── railway.json, requirements.txt, .env.example, .gitignore
+└── CLAUDE.md
 ```
 
-**Intermediates vs. deliverables:** anything in `.tmp/` is disposable working data and
-must never be treated as a source of truth. Real outputs surface in the **web
-dashboard** (the confirmed delivery target for this project) rather than as files
-committed to the repo.
+**Intermediates vs. deliverables:** `.tmp/` (and Railway's ephemeral filesystem
+generally) is disposable — the live Railway URL (app + Postgres) is the deliverable,
+the same role a Google Sheet plays in the original WAT example.
+
+## Tech stack
+
+- **Backend**: Python + FastAPI (single service) — chosen over Node to stay
+  consistent with this repo's existing `tools/` = Python convention.
+- **Database**: PostgreSQL via Railway's Postgres plugin (`DATABASE_URL` auto-injected).
+- **Scheduler**: a second Railway service (`qa-pulse-ingest-cron`) on a Cron Schedule,
+  calling the main service's protected `POST /api/ingest`.
+- **Frontend**: static single-page dashboard (HTML/JS/CSS, no build step), served by
+  FastAPI's `StaticFiles`.
+- **AI**: Anthropic API (`claude-opus-5`) for topic extraction via
+  `client.messages.parse()` structured outputs.
+
+## Data model
+
+`sources` (config per source) → `items` (fetched, deduped by URL) → `item_topics`
+(Claude-assigned labels, linking to canonical `topics`) → `topic_trends` (recomputed
+trend label per topic). Full schema: `migrations/001_init.sql`.
+
+## Trend classification rule
+
+`current_count` = mentions in the last 7 days; `prior_count` = mentions in the prior
+23-day window (day 8–30). Normalized to a weekly rate for comparison; New / Trending /
+Stable / Declining thresholds are named constants in `tools/classify_trend.py`. Full
+rule: `workflows/classify_trends.md`.
 
 ## Conventions
 
-- **Tools-first:** before writing a new script, check `tools/` for something that
-  already does the job. Only add a new tool when nothing existing covers the task.
-- **Self-improvement loop**, run whenever something breaks:
-  1. Identify what broke (read the full error/trace)
-  2. Fix the tool (check in before retrying anything that costs money/credits)
-  3. Verify the fix actually works
-  4. Update the relevant workflow with what was learned (rate limits, timing quirks,
-     unexpected behavior) so the same failure doesn't recur
-  5. Move on with a more robust system
-- **Workflows are living instructions**, not disposable notes — update them as better
-  methods or constraints are discovered, but don't create or overwrite one without
-  checking first; they represent agreed process, not a scratchpad.
-- **Secrets:** all credentials/API keys live in `.env` (gitignored) — never hardcoded,
-  never committed elsewhere. OAuth artifacts (`credentials.json`, `token.json`) are
-  gitignored for the same reason.
+Unchanged from the foundation phase: tools-first (check `tools/` before writing a new
+script), the self-improvement loop on failures (fix → verify → update the workflow),
+workflows are living instructions (update, don't casually overwrite), secrets only in
+`.env`/Railway env vars, never committed.
 
 ## Roadmap / Phases
 
-- **Phase 0 — Foundation (this plan):** WAT scaffold in place
-  (`workflows/`, `tools/`, `.tmp/`, `.env.example`, `.gitignore`, `CLAUDE.md`,
-  `docs/PRD.md`). No product logic yet.
-- **Phase 1 — Product definition:** **TBD.** Pending the actual QR-Trends product scope
-  (what it tracks, who it's for, what data sources it needs). This PRD will be updated
-  with concrete objectives, user stories, and success criteria once that's confirmed.
-- **Phase 2 — Core workflows & tools:** **TBD.** Build out the specific
-  `workflows/*.md` SOPs and matching `tools/*.py` scripts once Phase 1 defines what
-  needs to happen.
-- **Phase 3 — Dashboard:** **TBD.** Stand up the web dashboard that surfaces the
-  processed data/trends to the user (tech stack not yet chosen).
+- **Phase 0 — Foundation**: WAT scaffold. Done.
+- **Phase 1 — Core pipeline**: schema, ingestion (4 source types: RSS/Atom, Reddit
+  JSON, HN API, manual), Claude tagging, trend classification, dashboard. Done —
+  validated locally against a local Postgres instance with real Claude API calls (see
+  `scripts/run_pipeline_local.py`).
+- **Phase 2 — Full source list**: all 13 sources seeded in `sources`
+  (`tools/seed_sources.py`). Most are `enabled=false` pending URL verification — the
+  dev sandbox this was built in has network egress restricted to package registries +
+  `api.anthropic.com`, so feed URLs beyond Reddit's and HN's stable public APIs
+  weren't live-verified. See "Verifying source URLs" in
+  `workflows/deploy_railway.md` for how to confirm/enable the rest post-deploy.
+- **Phase 3 — Railway deployment**: code is deploy-ready (`railway.json`, startup
+  migration runner, `tools/trigger_ingest.py`). Actual deployment is a manual runbook
+  (`workflows/deploy_railway.md`) — the dev sandbox has no Railway account access.
 
-## Open Questions (not yet decided)
+## Open questions / known gaps
 
-- What does QR-Trends actually track or generate for the end user?
-- Who is the target user (individual, business, internal tool)?
-- What are the data sources / inputs (scraping, an API, user uploads, QR scan events)?
-- What tech stack should the dashboard and tool scripts use?
-- Any external services/credentials to plan for in `.env` (e.g. a QR generation
-  library/API, an analytics data source)?
-
-These will be resolved before Phase 1 work starts.
+- Most non-Reddit/HN source URLs need verification once deployed (see Phase 2).
+- YouTube channel IDs for the 4 named channels weren't resolved (no reliable way to
+  look them up from this sandbox) — seeded as disabled with a note; needs a manual
+  channel ID lookup before enabling.
+- Trend classification thresholds (1.5x / 0.5x / min-2-for-trending) are a first pass
+  — retune once real mention-volume data is visible.
+- No auth on the dashboard itself (only `/api/ingest` is protected) — fine for a
+  single-owner tool, revisit if this becomes multi-user.
