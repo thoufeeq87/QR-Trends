@@ -15,7 +15,7 @@ work, which isn't true yet for the unverified ones.
 
 from sqlalchemy.dialects.postgresql import insert
 
-from app.db import SessionLocal, Source
+from app.db import SessionLocal, Source, ensure_schema
 
 # (name, type, url, config, enabled)
 SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
@@ -149,6 +149,9 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
 
 
 def seed() -> None:
+    ensure_schema()  # safe to call before the app's own startup hook has run yet —
+    # e.g. a Railway Pre-deploy Command runs before the Start Command, so the
+    # `sources` table may not exist yet on a first deploy without this.
     db = SessionLocal()
     try:
         for name, type_, url, config, enabled in SOURCES:
