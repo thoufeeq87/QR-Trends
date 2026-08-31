@@ -114,8 +114,8 @@ def main() -> None:
         claude_items = db.query(Item).filter(Item.external_url.in_([u for u, _, _ in CLAUDE_TAGGED_ITEMS])).order_by(Item.id)
         for item in claude_items:
             labels = [
-                topic.label
-                for topic, in db.query(Topic.label)
+                label
+                for label, in db.query(Topic.label)
                 .join(ItemTopic, ItemTopic.topic_id == Topic.id)
                 .filter(ItemTopic.item_id == item.id)
                 .all()

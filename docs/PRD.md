@@ -96,7 +96,9 @@ workflows are living instructions (update, don't casually overwrite), secrets on
 - **Phase 0 — Foundation**: WAT scaffold. Done.
 - **Phase 1 — Core pipeline**: schema, ingestion (4 source types: RSS/Atom, Reddit
   JSON, HN API, manual), Claude tagging, trend classification, dashboard. Done —
-  validated locally against a local Postgres instance with real Claude API calls (see
+  validated locally end-to-end against a local Postgres instance, including a real
+  Claude API call (correct topic extraction and topic reuse across items) and all four
+  trend-classification buckets (new/trending/stable/declining) (see
   `scripts/run_pipeline_local.py`).
 - **Phase 2 — Full source list**: all 13 sources seeded in `sources`
   (`tools/seed_sources.py`). Most are `enabled=false` pending URL verification — the
