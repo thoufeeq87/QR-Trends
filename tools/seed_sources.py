@@ -30,15 +30,25 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         "Reddit r/QualityAssurance",
         "reddit_json",
         None,
-        {"subreddit": "QualityAssurance", "verified": True},
-        True,
+        {
+            "subreddit": "QualityAssurance",
+            "verified": False,
+            "note": "disabled — Reddit's classic script-app flow now redirects to their "
+            "Devvit developer platform signup instead of issuing OAuth credentials; "
+            "re-enable if that's completed (see workflows/ingest_sources.md)",
+        },
+        False,
     ),
     (
         "Reddit r/softwaretesting",
         "reddit_json",
         None,
-        {"subreddit": "softwaretesting", "verified": True},
-        True,
+        {
+            "subreddit": "softwaretesting",
+            "verified": False,
+            "note": "disabled — see the note on r/QualityAssurance above",
+        },
+        False,
     ),
     (
         "Software Testing Help",

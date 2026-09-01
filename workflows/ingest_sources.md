@@ -41,16 +41,18 @@ New rows in `items`. Fetch summary (`sources_checked`, `new_items`) is returned 
 caller (`app/pipeline.py`) and surfaced in `POST /api/ingest`'s response.
 
 ## Edge cases
-- **Reddit blocks the anonymous JSON API from cloud/datacenter IPs (403 "Blocked"),
-  not just a bad `User-Agent`.** Discovered in production on Railway: both Reddit
-  sources 403'd immediately, even with a compliant custom `User-Agent`. The fix is
-  OAuth, not a header tweak — `tools/fetch_source.py`'s `_get_reddit_token()` does a
-  `client_credentials` grant against `https://www.reddit.com/api/v1/access_token`
-  (Basic auth with `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET`, a free Reddit "script"
-  app), caches the token in-process until near expiry, and all Reddit reads go
-  through `oauth.reddit.com` with `Authorization: Bearer <token>`. If Reddit starts
-  403ing again, check whether the app credentials are still valid before assuming
-  it's a new IP block.
+- **Reddit sources are currently disabled** (`enabled=false` in `tools/seed_sources.py`).
+  The anonymous JSON API (`www.reddit.com/.../new.json`) hard-blocks cloud/datacenter
+  IPs like Railway's (403 "Blocked") regardless of `User-Agent`, so `fetch_reddit()`
+  was rewritten to use OAuth (`_get_reddit_token()` does a `client_credentials` grant
+  against `https://www.reddit.com/api/v1/access_token` with
+  `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET`, then reads via `oauth.reddit.com` with
+  `Authorization: Bearer <token>`) — but obtaining those credentials requires Reddit's
+  classic "script app" flow, which as of this writing redirects to their newer Devvit
+  developer platform signup instead of issuing credentials directly. The OAuth code
+  is in place and ready; re-enable the two Reddit sources (flip `enabled` to `true` in
+  `tools/seed_sources.py` and set the env vars) once someone completes that signup and
+  confirms it actually works. Until then, ingestion runs on the remaining sources.
 - **HN has no keyword-search endpoint.** Filtering happens client-side after fetching
   each story's JSON — this makes HN the most request-heavy source per run; keep the
   slice bounded (don't walk the entire firehose every day).
