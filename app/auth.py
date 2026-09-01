@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from app.config import ALLOWED_EMAILS, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+from app.config import ALLOWED_EMAILS, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, PUBLIC_BASE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def is_public(path: str) -> bool:
 
 @router.get("/login")
 async def login(request: Request):
-    redirect_uri = request.url_for("auth_callback")
+    redirect_uri = f"{PUBLIC_BASE_URL}/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 

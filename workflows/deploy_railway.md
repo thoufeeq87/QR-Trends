@@ -17,11 +17,9 @@ Railway account access was available in the dev sandbox this app was built in).
 1. In Railway, "New Project" → "Deploy from GitHub repo" → select this repo.
 2. Railway should auto-detect Python via `requirements.txt` + `railway.json`
    (Nixpacks builder, start command `uvicorn app.main:app --host 0.0.0.0 --port
-   $PORT --proxy-headers --forwarded-allow-ips=*` — the proxy flags matter for Google
-   sign-in below: without them, uvicorn doesn't know the request arrived over HTTPS
-   at Railway's edge, and generates an `http://` redirect URI that Google will
-   reject). If it doesn't pick up `railway.json` automatically, set the start command
-   manually in the service's Settings → Deploy.
+   $PORT --proxy-headers --forwarded-allow-ips=*`). If it doesn't pick up
+   `railway.json` automatically, set the start command manually in the service's
+   Settings → Deploy.
 3. Rename the service to something clear, e.g. `qa-pulse-web`.
 
 ### 2. Add Postgres
@@ -55,6 +53,13 @@ In `qa-pulse-web` → Variables, add:
 - `INGEST_SECRET` — any long random string (e.g. `openssl rand -hex 32`). This is the
   shared secret the cron service uses to call `/api/ingest`.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from step 3 above.
+- `PUBLIC_BASE_URL` — this service's own public URL, e.g.
+  `https://qr-trends.up.railway.app` (no trailing slash). **Must exactly match** the
+  origin of the redirect URI you registered in step 3 — the app builds
+  `{PUBLIC_BASE_URL}/auth/callback` explicitly rather than auto-detecting it from the
+  request (auto-detection produced an `http://` URL that Google rejected as a
+  mismatch, since Railway's proxy doesn't reliably signal HTTPS through to uvicorn —
+  confirmed in production, not just a theoretical concern).
 - `SESSION_SECRET_KEY` — any long random string (e.g. `openssl rand -hex 32`).
   **Must** be set explicitly — without it the app generates a random one on every
   boot, silently logging everyone out on each deploy or restart.
