@@ -10,6 +10,7 @@ class SparklinePoint(BaseModel):
 
 class RecentItem(BaseModel):
     title: str
+    short_summary: str | None
     url: str
     source_name: str
     published_at: datetime

@@ -27,13 +27,16 @@ function renderSparkline(points, width = 240, height = 36) {
 
 function renderRecentItems(items) {
   return items
-    .map(
-      (item) => `
+    .map((item) => {
+      // Prefer the AI-generated ~10-word summary; items tagged before this feature
+      // shipped (or a rare empty summary) fall back to the raw title.
+      const label = item.short_summary || item.title;
+      return `
         <li>
-          <a href="${escapeAttr(item.url)}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>
+          <a href="${escapeAttr(item.url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>
           <span class="source">— ${escapeHtml(item.source_name)}</span>
-        </li>`
-    )
+        </li>`;
+    })
     .join("");
 }
 

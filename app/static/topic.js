@@ -22,6 +22,7 @@ async function loadTopic() {
 
     document.title = `QA Pulse — ${topic.label}`;
     titleEl.textContent = topic.label;
+    titleEl.className = `card--${topic.trend_label}`;
     metaEl.innerHTML = `
       <span class="badge ${topic.trend_label}">${topic.trend_label}</span>
       &nbsp;${topic.current_count} mention${topic.current_count === 1 ? "" : "s"} this week

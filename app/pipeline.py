@@ -75,12 +75,12 @@ def tag_untagged_items(db: Session) -> int:
 
     for item in untagged:
         try:
-            labels = claude_tag_topics.tag(item.title, item.summary, existing_labels)
+            result = claude_tag_topics.tag(item.title, item.summary, existing_labels)
         except Exception:
             logger.exception("tagging failed for item %s", item.id)
             continue
 
-        topic_ids = {_get_or_create_topic(db, label, existing_labels).id for label in labels}
+        topic_ids = {_get_or_create_topic(db, label, existing_labels).id for label in result.topics}
         if topic_ids:
             stmt = (
                 insert(ItemTopic)
@@ -88,7 +88,8 @@ def tag_untagged_items(db: Session) -> int:
                 .on_conflict_do_nothing(index_elements=["item_id", "topic_id"])
             )
             db.execute(stmt)
-        if labels:
+        if result.topics:
+            item.short_summary = result.summary
             tagged_count += 1
         db.commit()
 

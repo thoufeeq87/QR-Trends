@@ -105,9 +105,38 @@ section h2 {
 }
 
 .card-title {
+    font-size: 1.25rem;
     font-weight: 600;
     margin: 0 0 0.25rem;
 }
+
+/* Per-trend tint on the title/meta text — the badge already carries its own
+   explicit color per trend and takes precedence via selector specificity. */
+.card--new .card-title-link,
+.card--new .card-meta {
+    color: var(--accent-new);
+}
+
+.card--trending .card-title-link,
+.card--trending .card-meta {
+    color: var(--accent-trending);
+}
+
+.card--stable .card-title-link,
+.card--stable .card-meta {
+    color: var(--accent-stable);
+}
+
+.card--declining .card-title-link,
+.card--declining .card-meta {
+    color: var(--accent-fading);
+}
+
+/* Same per-trend tint applied directly to the topic detail page's <h1>. */
+#topic-title.card--new { color: var(--accent-new); }
+#topic-title.card--trending { color: var(--accent-trending); }
+#topic-title.card--stable { color: var(--accent-stable); }
+#topic-title.card--declining { color: var(--accent-fading); }
 
 /* "Stretched link" pattern: a real, focusable link on the title whose ::after
    extends the clickable area over the whole card, without nesting <a> inside
@@ -133,14 +162,14 @@ section h2 {
 }
 
 .card-meta {
-    font-size: 0.8rem;
+    font-size: 1rem;
     color: var(--text-muted);
     margin-bottom: 0.5rem;
 }
 
 .badge {
     display: inline-block;
-    font-size: 0.7rem;
+    font-size: 0.875rem;
     padding: 0.1rem 0.5rem;
     border-radius: 999px;
     text-transform: uppercase;
@@ -160,7 +189,7 @@ section h2 {
     list-style: none;
     padding: 0;
     margin: 0.5rem 0 0;
-    font-size: 0.82rem;
+    font-size: 1.025rem;
 }
 
 .recent-items li {
@@ -242,7 +271,7 @@ section h2 {
 
 .decline-note {
     margin: -0.25rem 0 0.5rem;
-    font-size: 0.78rem;
+    font-size: 0.975rem;
     color: var(--text-muted);
 }
 

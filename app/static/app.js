@@ -46,7 +46,7 @@ async function loadSection(section, offset = 0) {
 
 function renderCard(topic) {
   return `
-    <div class="card">
+    <div class="card card--${topic.trend_label}">
       <p class="card-title">
         <a class="card-title-link" href="/topic.html?id=${topic.topic_id}">${escapeHtml(topic.label)}</a>
       </p>

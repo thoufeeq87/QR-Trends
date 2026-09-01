@@ -111,6 +111,7 @@ def _recent_items_batch(db: Session, topic_ids: list[int], limit: int) -> dict[i
         db.query(
             ItemTopic.topic_id.label("topic_id"),
             Item.title.label("title"),
+            Item.short_summary.label("short_summary"),
             Item.external_url.label("url"),
             Source.name.label("source_name"),
             Item.published_at.label("published_at"),
@@ -129,6 +130,7 @@ def _recent_items_batch(db: Session, topic_ids: list[int], limit: int) -> dict[i
         result[row.topic_id].append(
             {
                 "title": row.title,
+                "short_summary": row.short_summary,
                 "url": row.url,
                 "source_name": row.source_name,
                 "published_at": row.published_at,

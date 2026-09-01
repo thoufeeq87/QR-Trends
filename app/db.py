@@ -13,7 +13,6 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     func,
-    inspect,
     text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -56,6 +55,7 @@ class Item(Base):
     external_url: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[str | None] = mapped_column(Text)
+    short_summary: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -94,10 +94,12 @@ class TopicTrend(Base):
 
 
 def ensure_schema() -> None:
-    """Apply migrations/001_init.sql if the schema doesn't exist yet. Called on app startup."""
-    inspector = inspect(engine)
-    if inspector.has_table("sources"):
-        return
-    sql = (MIGRATIONS_DIR / "001_init.sql").read_text()
+    """Apply every migrations/*.sql file, in order, on every startup. Each one is
+    written idempotently (CREATE TABLE IF NOT EXISTS, ADD COLUMN IF NOT EXISTS, ...),
+    so this is safe to re-run unconditionally — it's the project's whole migration
+    story: no separate tracking table, just idempotent SQL files applied in name
+    order every boot."""
+    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
     with engine.begin() as conn:
-        conn.execute(text(sql))
+        for path in migration_files:
+            conn.execute(text(path.read_text()))
