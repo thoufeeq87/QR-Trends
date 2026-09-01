@@ -118,5 +118,8 @@ workflows are living instructions (update, don't casually overwrite), secrets on
   channel ID lookup before enabling.
 - Trend classification thresholds (1.5x / 0.5x / min-2-for-trending) are a first pass
   — retune once real mention-volume data is visible.
-- No auth on the dashboard itself (only `/api/ingest` is protected) — fine for a
-  single-owner tool, revisit if this becomes multi-user.
+- ~~No auth on the dashboard itself~~ — the dashboard now requires Google sign-in,
+  restricted to specific Gmail address(es) via `ALLOWED_EMAILS` (see `app/auth.py`,
+  `workflows/deploy_railway.md` "Google Sign-In setup"). `/api/ingest` and
+  `/api/health` keep their own separate, non-human auth (secret header / none) since
+  they're called by the cron service and infra monitoring, not a signed-in user.

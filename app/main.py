@@ -5,8 +5,10 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
 
-from app.config import INGEST_SECRET
+from app.auth import AuthMiddleware, router as auth_router
+from app.config import INGEST_SECRET, SESSION_SECRET_KEY
 from app.db import SessionLocal, ensure_schema
 from app.pipeline import run_ingest
 from app.queries import SECTION_TREND_LABELS, get_last_ingested_at, get_topic_card, get_topic_cards
@@ -15,6 +17,14 @@ from app.schemas import IngestSummary, StatusResponse, TopicCard, TopicSection
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(title="QA Pulse")
+
+# Middleware order matters: Starlette wraps in reverse of add_middleware() call
+# order, so the LAST one added ends up outermost (runs first on each request).
+# AuthMiddleware reads request.session, so SessionMiddleware must run before it —
+# added second here, verified empirically in local testing.
+app.add_middleware(AuthMiddleware)
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY, same_site="lax")
+app.include_router(auth_router)
 
 
 @app.on_event("startup")

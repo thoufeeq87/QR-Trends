@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QA Pulse — Sign in</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="login-main">
+    <div class="login-card">
+      <h1>QA Pulse</h1>
+      <p>This dashboard is private. Sign in with an authorized Google account to continue.</p>
+      <p id="login-error" class="login-error" hidden>Sign-in failed or your account isn't authorized.</p>
+      <a class="google-signin" href="/auth/login">Sign in with Google</a>
+    </div>
+  </main>
+  <script>
+    if (new URLSearchParams(window.location.search).get("error")) {
+      document.getElementById("login-error").hidden = false;
+    }
+  </script>
+</body>
+</html>
