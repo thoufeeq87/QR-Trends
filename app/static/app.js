@@ -1,75 +1,64 @@
+const PAGE_SIZE = 30;
+
 const SECTIONS = [
   { id: "new", el: "section-new" },
   { id: "relevant", el: "section-relevant" },
   { id: "fading", el: "section-fading" },
 ];
 
-async function loadSection(section) {
+async function loadSection(section, offset = 0) {
   const container = document.getElementById(section.el);
+  if (offset === 0) {
+    container.innerHTML = `<p class="empty-state">Loading…</p>`;
+  }
+
   try {
-    const res = await fetch(`/api/topics?section=${section.id}`);
+    const res = await fetch(`/api/topics?section=${section.id}&limit=${PAGE_SIZE}&offset=${offset}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const topics = await res.json();
-    if (topics.length === 0) {
+    const data = await res.json();
+
+    if (offset === 0 && data.topics.length === 0) {
       container.innerHTML = `<p class="empty-state">Nothing here yet.</p>`;
       return;
     }
-    container.innerHTML = topics.map(renderCard).join("");
+
+    const cardsHtml = data.topics.map(renderCard).join("");
+    if (offset === 0) {
+      container.innerHTML = cardsHtml;
+    } else {
+      container.querySelector(".show-more-wrap")?.remove();
+      container.insertAdjacentHTML("beforeend", cardsHtml);
+    }
+
+    if (data.has_more) {
+      container.insertAdjacentHTML(
+        "beforeend",
+        `<div class="show-more-wrap"><button type="button" class="show-more">Show more</button></div>`
+      );
+      container.querySelector(".show-more").addEventListener("click", () => {
+        loadSection(section, offset + PAGE_SIZE);
+      });
+    }
   } catch (err) {
     container.innerHTML = `<p class="empty-state">Couldn't load this section (${err.message}).</p>`;
   }
 }
 
 function renderCard(topic) {
-  const recentItems = topic.recent_items
-    .map(
-      (item) => `
-        <li>
-          <a href="${escapeAttr(item.url)}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>
-          <span class="source">— ${escapeHtml(item.source_name)}</span>
-        </li>`
-    )
-    .join("");
-
   return `
     <div class="card">
-      <p class="card-title">${escapeHtml(topic.label)}</p>
+      <p class="card-title">
+        <a class="card-title-link" href="/topic.html?id=${topic.topic_id}">${escapeHtml(topic.label)}</a>
+      </p>
       <p class="card-meta">
         <span class="badge ${topic.trend_label}">${topic.trend_label}</span>
         &nbsp;${topic.current_count} mention${topic.current_count === 1 ? "" : "s"} this week
       </p>
+      ${declineNote(topic)}
       <div class="sparkline">${renderSparkline(topic.sparkline)}</div>
-      <ul class="recent-items">${recentItems}</ul>
+      <ul class="recent-items">${renderRecentItems(topic.recent_items)}</ul>
     </div>`;
 }
 
-function renderSparkline(points) {
-  if (!points || points.length === 0) return "";
-  const width = 240;
-  const height = 36;
-  const max = Math.max(1, ...points.map((p) => p.count));
-  const step = points.length > 1 ? width / (points.length - 1) : 0;
-
-  const coords = points.map((p, i) => {
-    const x = i * step;
-    const y = height - (p.count / max) * (height - 4) - 2;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-
-  return `
-    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="mentions per week">
-      <polyline fill="none" stroke="currentColor" stroke-width="2" points="${coords.join(" ")}" />
-    </svg>`;
-}
-
-function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
-}
-
-function escapeAttr(str) {
-  return escapeHtml(str);
-}
-
-SECTIONS.forEach(loadSection);
+loadLastUpdated("last-updated");
+SECTIONS.forEach((section) => loadSection(section));

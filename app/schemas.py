@@ -25,6 +25,15 @@ class TopicCard(BaseModel):
     recent_items: list[RecentItem]
 
 
+class TopicSection(BaseModel):
+    topics: list[TopicCard]
+    has_more: bool
+
+
+class StatusResponse(BaseModel):
+    last_ingested_at: datetime | None
+
+
 class IngestSummary(BaseModel):
     sources_checked: int
     new_items: int

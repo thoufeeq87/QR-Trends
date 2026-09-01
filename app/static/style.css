@@ -46,6 +46,22 @@ header p {
     font-size: 0.9rem;
 }
 
+.last-updated {
+    margin: 0.35rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.back-link {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+
+.back-link:hover {
+    color: var(--text);
+}
+
 main {
     max-width: 1100px;
     margin: 0 auto;
@@ -81,6 +97,7 @@ section h2 {
 }
 
 .card {
+    position: relative;
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -90,6 +107,29 @@ section h2 {
 .card-title {
     font-weight: 600;
     margin: 0 0 0.25rem;
+}
+
+/* "Stretched link" pattern: a real, focusable link on the title whose ::after
+   extends the clickable area over the whole card, without nesting <a> inside
+   <a> (the recent-items links below need to stay independently clickable). */
+.card-title-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.card-title-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+}
+
+.card-title-link:hover {
+    text-decoration: underline;
+}
+
+.card-title-link:focus-visible {
+    outline: 2px solid var(--accent-new);
+    outline-offset: 2px;
 }
 
 .card-meta {
@@ -128,6 +168,8 @@ section h2 {
 }
 
 .recent-items a {
+    position: relative; /* sit above .card-title-link::after's stretched hit area */
+    z-index: 1;
     color: inherit;
     text-decoration: none;
     border-bottom: 1px solid var(--border);
@@ -144,4 +186,35 @@ section h2 {
 .empty-state {
     color: var(--text-muted);
     font-size: 0.9rem;
+}
+
+.decline-note {
+    margin: -0.25rem 0 0.5rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.show-more-wrap {
+    grid-column: 1 / -1;
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
+.show-more {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.show-more:hover {
+    border-color: var(--text-muted);
+}
+
+.show-more:focus-visible {
+    outline: 2px solid var(--accent-new);
+    outline-offset: 2px;
 }

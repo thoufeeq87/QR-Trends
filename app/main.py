@@ -1,15 +1,16 @@
+import hmac
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import INGEST_SECRET
 from app.db import SessionLocal, ensure_schema
 from app.pipeline import run_ingest
-from app.queries import SECTION_TREND_LABELS, get_topic_card, get_topic_cards
-from app.schemas import IngestSummary, TopicCard
+from app.queries import SECTION_TREND_LABELS, get_last_ingested_at, get_topic_card, get_topic_cards
+from app.schemas import IngestSummary, StatusResponse, TopicCard, TopicSection
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -30,20 +31,33 @@ def get_db():
 
 
 def require_ingest_secret(x_ingest_secret: str = Header(default="")) -> None:
-    if not INGEST_SECRET or x_ingest_secret != INGEST_SECRET:
+    if not INGEST_SECRET or not hmac.compare_digest(x_ingest_secret, INGEST_SECRET):
         raise HTTPException(status_code=401, detail="invalid or missing X-Ingest-Secret")
 
 
 @app.get("/api/health")
-def health() -> dict:
+def health(db: Session = Depends(get_db)) -> dict:
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        raise HTTPException(status_code=503, detail="database unavailable")
     return {"status": "ok"}
 
 
-@app.get("/api/topics", response_model=list[TopicCard])
-def list_topics(section: str, db: Session = Depends(get_db)) -> list[dict]:
+@app.get("/api/status", response_model=StatusResponse)
+def status(db: Session = Depends(get_db)) -> dict:
+    return {"last_ingested_at": get_last_ingested_at(db)}
+
+
+@app.get("/api/topics", response_model=TopicSection)
+def list_topics(section: str, limit: int = 30, offset: int = 0, db: Session = Depends(get_db)) -> dict:
     if section not in SECTION_TREND_LABELS:
         raise HTTPException(status_code=400, detail=f"section must be one of {list(SECTION_TREND_LABELS)}")
-    return get_topic_cards(db, section)
+    if not (1 <= limit <= 100):
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+    if offset < 0:
+        raise HTTPException(status_code=400, detail="offset must be >= 0")
+    return get_topic_cards(db, section, limit=limit, offset=offset)
 
 
 @app.get("/api/topics/{topic_id}", response_model=TopicCard)
