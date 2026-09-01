@@ -7,7 +7,8 @@ table and store them in `items`, deduped by URL.
 ## Required inputs
 - `sources` table rows: `name`, `type` (`rss` | `reddit_json` | `hn_api` |
   `youtube_atom` | `manual`), `url`, `config` (jsonb, source-specific extras).
-- No external credentials needed for any current source type (all public endpoints).
+- `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET` env vars for `reddit_json` sources (see
+  Edge cases) — every other source type needs no credentials.
 
 ## Tool
 `tools/fetch_source.py` — `fetch(source: Source) -> list[FetchedItem]`, dispatched by
@@ -19,8 +20,10 @@ table and store them in `items`, deduped by URL.
    - **rss**: `feedparser.parse(source.url)` — handles both RSS 2.0 and Atom feeds
      (covers Ministry of Testing, Software Testing Help, Guru99, TestGuild blog +
      podcast, StickyMinds, BrowserStack, Sauce Labs, and YouTube channel feeds).
-   - **reddit_json**: `GET https://www.reddit.com/r/<config.subreddit>/new.json` with a
-     real `User-Agent` header (Reddit 429s on the default/missing UA — see Edge cases).
+   - **reddit_json**: `GET https://oauth.reddit.com/r/<config.subreddit>/new` using an
+     OAuth client-credentials token (see Edge cases) — the anonymous
+     `www.reddit.com/.../new.json` endpoint gets hard-blocked from cloud/datacenter
+     IPs like Railway's, regardless of headers.
    - **hn_api**: pull `https://hacker-news.firebaseio.com/v0/newstories.json` (capped
      to a bounded recent slice, e.g. the first 200 IDs), fetch each item, keep only
      titles matching `config.keywords` (case-insensitive substring).
@@ -38,9 +41,16 @@ New rows in `items`. Fetch summary (`sources_checked`, `new_items`) is returned 
 caller (`app/pipeline.py`) and surfaced in `POST /api/ingest`'s response.
 
 ## Edge cases
-- **Reddit 429s without a `User-Agent`.** Send something identifying, e.g.
-  `qa-pulse/1.0 (contact: <deploy contact>)`. If it starts 429ing again in production,
-  check `docs/PRD.md`/this file for the current rate limit before hammering retries.
+- **Reddit blocks the anonymous JSON API from cloud/datacenter IPs (403 "Blocked"),
+  not just a bad `User-Agent`.** Discovered in production on Railway: both Reddit
+  sources 403'd immediately, even with a compliant custom `User-Agent`. The fix is
+  OAuth, not a header tweak — `tools/fetch_source.py`'s `_get_reddit_token()` does a
+  `client_credentials` grant against `https://www.reddit.com/api/v1/access_token`
+  (Basic auth with `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET`, a free Reddit "script"
+  app), caches the token in-process until near expiry, and all Reddit reads go
+  through `oauth.reddit.com` with `Authorization: Bearer <token>`. If Reddit starts
+  403ing again, check whether the app credentials are still valid before assuming
+  it's a new IP block.
 - **HN has no keyword-search endpoint.** Filtering happens client-side after fetching
   each story's JSON — this makes HN the most request-heavy source per run; keep the
   slice bounded (don't walk the entire firehose every day).

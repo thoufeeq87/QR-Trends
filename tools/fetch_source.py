@@ -7,6 +7,7 @@ tests/fixtures never need to know the difference between an RSS feed and a JSON 
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -14,10 +15,17 @@ from email.utils import parsedate_to_datetime
 import feedparser
 import requests
 
+from app.config import REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET
+
 USER_AGENT = "qa-pulse/1.0 (topic-trend tracker; contact via GitHub repo)"
 HN_BASE = "https://hacker-news.firebaseio.com/v0"
 HN_STORY_SLICE = 200
 REQUEST_TIMEOUT = 15
+REDDIT_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
+REDDIT_OAUTH_BASE = "https://oauth.reddit.com"
+REDDIT_TOKEN_REFRESH_MARGIN = 60  # seconds before expiry to proactively refresh
+
+_reddit_token_cache: dict[str, object] = {"token": None, "expires_at": 0.0}
 
 
 @dataclass
@@ -64,10 +72,12 @@ def fetch_feed(url: str) -> list[FetchedItem]:
 
 
 def fetch_reddit(subreddit: str) -> list[FetchedItem]:
-    """Reddit's public JSON API. Requires a real User-Agent or it 429s — see
-    workflows/ingest_sources.md Edge cases."""
-    url = f"https://www.reddit.com/r/{subreddit}/new.json"
-    resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+    """Reddit's OAuth API. The old anonymous reddit.com/.../new.json endpoint gets a
+    hard 403 from datacenter/cloud-host IPs regardless of User-Agent — see
+    workflows/ingest_sources.md Edge cases. Requires REDDIT_CLIENT_ID/SECRET."""
+    url = f"{REDDIT_OAUTH_BASE}/r/{subreddit}/new"
+    headers = {"User-Agent": USER_AGENT, "Authorization": f"Bearer {_get_reddit_token()}"}
+    resp = requests.get(url, headers=headers, params={"limit": 25}, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
     children = resp.json()["data"]["children"]
     items = []
@@ -82,6 +92,27 @@ def fetch_reddit(subreddit: str) -> list[FetchedItem]:
             )
         )
     return items
+
+
+def _get_reddit_token() -> str:
+    """Client-credentials OAuth token, cached in-process until near expiry."""
+    now = time.monotonic()
+    if _reddit_token_cache["token"] and now < _reddit_token_cache["expires_at"]:
+        return _reddit_token_cache["token"]
+
+    resp = requests.post(
+        REDDIT_TOKEN_URL,
+        auth=(REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET),
+        data={"grant_type": "client_credentials"},
+        headers={"User-Agent": USER_AGENT},
+        timeout=REQUEST_TIMEOUT,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+
+    _reddit_token_cache["token"] = payload["access_token"]
+    _reddit_token_cache["expires_at"] = now + payload["expires_in"] - REDDIT_TOKEN_REFRESH_MARGIN
+    return _reddit_token_cache["token"]
 
 
 def fetch_hn(keywords: list[str]) -> list[FetchedItem]:

@@ -31,6 +31,11 @@ In `qa-pulse-web` → Variables, add:
 - `ANTHROPIC_API_KEY` — your Anthropic API key.
 - `INGEST_SECRET` — any long random string (e.g. `openssl rand -hex 32`). This is the
   shared secret the cron service uses to call `/api/ingest`.
+- `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` — from a free Reddit "script" app
+  (create one at https://www.reddit.com/prefs/apps). Required for the two Reddit
+  sources — Reddit's anonymous JSON API hard-blocks Railway's IPs regardless of
+  headers, so this isn't optional in production (see `workflows/ingest_sources.md`
+  Edge cases).
 
 `DATABASE_URL` and `PORT` are already provided by Railway.
 
