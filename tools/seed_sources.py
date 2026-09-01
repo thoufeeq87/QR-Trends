@@ -24,52 +24,56 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         "rss",
         "https://www.ministryoftesting.com/rss",
         {"verified": False},
-        False,
+        True,
     ),
     (
         "Reddit r/QualityAssurance",
-        "reddit_json",
-        None,
+        "rss",
+        "https://www.reddit.com/r/QualityAssurance/new/.rss",
         {
-            "subreddit": "QualityAssurance",
             "verified": False,
-            "note": "disabled — Reddit's classic script-app flow now redirects to their "
-            "Devvit developer platform signup instead of issuing OAuth credentials; "
-            "re-enable if that's completed (see workflows/ingest_sources.md)",
+            "note": "switched from the OAuth JSON API (script-app credentials "
+            "unobtainable — see r/softwaretesting note) to Reddit's own RSS feed, a "
+            "different code path (feedparser, same as every other rss source) that "
+            "may not be subject to the same datacenter-IP block. Free, no signup. "
+            "If ingest logs show this failing too, disable it.",
         },
-        False,
+        True,
     ),
     (
         "Reddit r/softwaretesting",
-        "reddit_json",
-        None,
+        "rss",
+        "https://www.reddit.com/r/softwaretesting/new/.rss",
         {
-            "subreddit": "softwaretesting",
             "verified": False,
-            "note": "disabled — see the note on r/QualityAssurance above",
+            "note": "same RSS fallback as r/QualityAssurance — see that note. Reddit's "
+            "classic script-app OAuth flow now redirects to their Devvit developer "
+            "platform signup instead of issuing credentials, so the OAuth path in "
+            "tools/fetch_source.py (fetch_reddit/_get_reddit_token) is unused unless "
+            "someone completes that signup and this RSS fallback doesn't pan out.",
         },
-        False,
+        True,
     ),
     (
         "Software Testing Help",
         "rss",
         "https://www.softwaretestinghelp.com/feed/",
         {"verified": False},
-        False,
+        True,
     ),
     (
         "Guru99",
         "rss",
         "https://www.guru99.com/feed",
         {"verified": False},
-        False,
+        True,
     ),
     (
         "TestGuild Blog",
         "rss",
         "https://testguild.com/feed/",
         {"verified": False},
-        False,
+        True,
     ),
     (
         "TestGuild Podcast",
@@ -83,21 +87,21 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         "rss",
         "https://www.stickyminds.com/rss.xml",
         {"verified": False},
-        False,
+        True,
     ),
     (
         "BrowserStack Blog",
         "rss",
         "https://www.browserstack.com/blog/feed/",
         {"verified": False},
-        False,
+        True,
     ),
     (
         "Sauce Labs Blog",
         "rss",
         "https://saucelabs.com/blog/feed",
         {"verified": False},
-        False,
+        True,
     ),
     (
         "The Test Tribe",

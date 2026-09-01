@@ -41,18 +41,22 @@ New rows in `items`. Fetch summary (`sources_checked`, `new_items`) is returned 
 caller (`app/pipeline.py`) and surfaced in `POST /api/ingest`'s response.
 
 ## Edge cases
-- **Reddit sources are currently disabled** (`enabled=false` in `tools/seed_sources.py`).
-  The anonymous JSON API (`www.reddit.com/.../new.json`) hard-blocks cloud/datacenter
-  IPs like Railway's (403 "Blocked") regardless of `User-Agent`, so `fetch_reddit()`
-  was rewritten to use OAuth (`_get_reddit_token()` does a `client_credentials` grant
-  against `https://www.reddit.com/api/v1/access_token` with
-  `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET`, then reads via `oauth.reddit.com` with
-  `Authorization: Bearer <token>`) — but obtaining those credentials requires Reddit's
-  classic "script app" flow, which as of this writing redirects to their newer Devvit
-  developer platform signup instead of issuing credentials directly. The OAuth code
-  is in place and ready; re-enable the two Reddit sources (flip `enabled` to `true` in
-  `tools/seed_sources.py` and set the env vars) once someone completes that signup and
-  confirms it actually works. Until then, ingestion runs on the remaining sources.
+- **Reddit's anonymous JSON API hard-blocks cloud/datacenter IPs like Railway's**
+  (403 "Blocked", confirmed in production) regardless of `User-Agent`. The proper fix
+  is OAuth (`fetch_reddit()`/`_get_reddit_token()` in `tools/fetch_source.py` — a
+  `client_credentials` grant against `https://www.reddit.com/api/v1/access_token`
+  with `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET`, then reads via `oauth.reddit.com`
+  with `Authorization: Bearer <token>`), but obtaining those credentials requires
+  Reddit's classic "script app" flow, which as of this writing redirects to their
+  newer Devvit developer platform signup instead of issuing credentials directly. The
+  OAuth code is in place and unused for now. Both Reddit sources currently run as
+  **`type=rss`** instead, pointed at Reddit's own feed
+  (`https://www.reddit.com/r/<sub>/new/.rss`) — a different code path (plain
+  `feedparser`, same as every other RSS source) that may dodge the same block since
+  it's not the JSON API specifically. Unverified as of this writing; check ingest
+  logs for `fetch failed for source Reddit ...` to see if it actually works. If it
+  also gets blocked, switch back to `type=reddit_json` once real OAuth credentials
+  exist (see `tools/seed_sources.py`).
 - **HN has no keyword-search endpoint.** Filtering happens client-side after fetching
   each story's JSON — this makes HN the most request-heavy source per run; keep the
   slice bounded (don't walk the entire firehose every day).

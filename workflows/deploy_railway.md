@@ -31,12 +31,13 @@ In `qa-pulse-web` → Variables, add:
 - `ANTHROPIC_API_KEY` — your Anthropic API key.
 - `INGEST_SECRET` — any long random string (e.g. `openssl rand -hex 32`). This is the
   shared secret the cron service uses to call `/api/ingest`.
-- `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` — optional for now. The two Reddit
-  sources are disabled (see `workflows/ingest_sources.md` Edge cases: Reddit's
+- `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` — not currently needed. Reddit's
   anonymous JSON API blocks Railway's IPs, and their classic script-app credential
-  flow currently redirects to a Devvit developer-platform signup instead of issuing
-  credentials). Only set these and re-enable the Reddit sources in
-  `tools/seed_sources.py` if that signup gets completed and confirmed working.
+  flow now redirects to a Devvit developer-platform signup instead of issuing
+  credentials, so the two Reddit sources run as `type=rss` against Reddit's own feed
+  instead (see `workflows/ingest_sources.md` Edge cases — unverified, check ingest
+  logs). Only set these and switch those sources back to `type=reddit_json` if the
+  RSS fallback also gets blocked and someone completes the Devvit signup.
 
 `DATABASE_URL` and `PORT` are already provided by Railway.
 
