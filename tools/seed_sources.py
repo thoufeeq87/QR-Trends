@@ -1,7 +1,8 @@
 """Idempotent seed of the `sources` config table. Run once (or re-run safely — it's
 an upsert by `name`) via `python -m tools.seed_sources`.
 
-URL confidence varies a lot across these 13 sources. This sandbox's network egress is
+URL confidence varies a lot across these sources (the original 13 from the spec, plus
+extra testing-tool subreddits added later). This sandbox's network egress is
 restricted to package registries + api.anthropic.com (see workflows/deploy_railway.md
 "Verifying source URLs"), so none of these were live-verified during development —
 only Reddit's JSON API and Hacker News' Firebase API are stable, documented public
@@ -51,6 +52,39 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
             "platform signup instead of issuing credentials, so the OAuth path in "
             "tools/fetch_source.py (fetch_reddit/_get_reddit_token) is unused unless "
             "someone completes that signup and this RSS fallback doesn't pan out.",
+        },
+        True,
+    ),
+    (
+        "Reddit r/selenium",
+        "rss",
+        "https://www.reddit.com/r/selenium/new/.rss",
+        {
+            "verified": False,
+            "note": "web test automation (Selenium WebDriver) — same RSS approach as "
+            "the other Reddit sources, unverified without live access.",
+        },
+        True,
+    ),
+    (
+        "Reddit r/Appium",
+        "rss",
+        "https://www.reddit.com/r/Appium/new/.rss",
+        {
+            "verified": False,
+            "note": "mobile test automation (cross-platform iOS/Android) — same RSS "
+            "approach as the other Reddit sources, unverified without live access.",
+        },
+        True,
+    ),
+    (
+        "Reddit r/Cypress",
+        "rss",
+        "https://www.reddit.com/r/Cypress/new/.rss",
+        {
+            "verified": False,
+            "note": "modern web test automation framework — same RSS approach as the "
+            "other Reddit sources, unverified without live access.",
         },
         True,
     ),
