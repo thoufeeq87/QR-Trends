@@ -6,9 +6,22 @@ table and store them in `items`, deduped by URL.
 
 ## Required inputs
 - `sources` table rows: `name`, `type` (`rss` | `reddit_json` | `hn_api` |
-  `youtube_atom` | `manual`), `url`, `config` (jsonb, source-specific extras).
+  `youtube_atom` | `manual`), `url`, `config` (jsonb, source-specific extras), `domain`
+  (`qa` | `agents` — see "Domains" below).
 - `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET` env vars for `reddit_json` sources (see
   Edge cases) — every other source type needs no credentials.
+
+## Domains
+
+QA Pulse tracks two independent domains from one deployment: `qa` (software
+QA/testing — the original 21 sources) and `agents` (AI agents / agentic AI — 6
+sources added later: r/AI_Agents, r/ClaudeAI, r/LocalLLaMA via Reddit RSS, the CrewAI
+Community Forum RSS feed, the Model Context Protocol GitHub releases Atom feed, and a
+second `hn_api` source filtered by agent-related keywords instead of QA ones).
+Ingestion itself is domain-agnostic — every enabled source is fetched the same way
+regardless of `domain`, since `domain` only affects which topic pool an item's tags
+land in downstream (see `workflows/tag_topics.md`). `tools/seed_sources.py` is the
+source of truth for which source belongs to which domain.
 
 ## Tool
 `tools/fetch_source.py` — `fetch(source: Source) -> list[FetchedItem]`, dispatched by
@@ -67,4 +80,6 @@ caller (`app/pipeline.py`) and surfaced in `POST /api/ingest`'s response.
 - **Feed URLs that don't actually exist.** Verified before seeding via `WebFetch`
   rather than assumed from a conventional URL pattern (Ministry of Testing / Test
   Tribe / Software Testing Weekly in particular were not guaranteed to have RSS —
-  see `tools/seed_sources.py` for what was confirmed vs. disabled).
+  see `tools/seed_sources.py` for what was confirmed vs. disabled). The `agents`
+  domain's CrewAI Community Forum and MCP GitHub releases URLs are similarly
+  unverified (this sandbox can't reach either) — check ingest logs after deploy.

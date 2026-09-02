@@ -3,12 +3,14 @@
 ## Overview
 
 **QA Pulse** is a full-stack app that tracks what topics are trending, stable, or
-fading in the software QA/testing niche. It ingests articles, forum posts, and videos
-from ~13 QA/testing sources daily, uses Claude to extract topic labels, classifies
-each topic's momentum (New / Trending / Stable / Declining) based on recent mention
-counts, and surfaces the result on a dashboard. It's built around the **WAT
-framework** established in this repo's foundation phase (see below) and deploys to
-Railway.
+fading — across two independently tracked domains from one deployment: **QA Pulse**
+(software QA/testing, the original domain) and **AI Agent Pulse** (AI agents /
+agentic AI, added later). It ingests articles, forum posts, and videos from ~27
+sources daily across both domains, uses Claude to extract domain-scoped topic labels,
+classifies each topic's momentum (New / Trending / Stable / Declining) based on
+recent mention counts, and surfaces the result on a dashboard with a header dropdown
+to switch which domain is shown. It's built around the **WAT framework** established
+in this repo's foundation phase (see below) and deploys to Railway.
 
 This is a living document — the sections below reflect the current build; see Roadmap
 for what's still open.
@@ -75,7 +77,17 @@ the same role a Google Sheet plays in the original WAT example.
 
 `sources` (config per source) → `items` (fetched, deduped by URL) → `item_topics`
 (Claude-assigned labels, linking to canonical `topics`) → `topic_trends` (recomputed
-trend label per topic). Full schema: `migrations/001_init.sql`.
+trend label per topic). Full schema: `migrations/001_init.sql`, plus incremental
+migrations under `migrations/` (`ensure_schema()` applies every file there, in order,
+on every startup — see `app/db.py`).
+
+**Domains**: `sources.domain` and `topics.domain` (`'qa'` | `'agents'`,
+`migrations/003_add_domain_scoping.sql`) scope both ingestion sources and the topic
+pool they feed. `topics` is unique per `(label, domain)`, not globally — the same
+label minted from a `qa` item and an `agents` item lands in two separate rows, so
+mention counts and recent items never mix across domains. Every domain-facing query
+(`app/queries.py`, `GET /api/topics`, `GET /api/status`) takes a `domain` param
+(default `'qa'`).
 
 ## Trend classification rule
 
@@ -109,10 +121,23 @@ workflows are living instructions (update, don't casually overwrite), secrets on
 - **Phase 3 — Railway deployment**: code is deploy-ready (`railway.json`, startup
   migration runner, `tools/trigger_ingest.py`). Actual deployment is a manual runbook
   (`workflows/deploy_railway.md`) — the dev sandbox has no Railway account access.
+- **Phase 4 — AI Agent Pulse (second domain)**: `sources`/`topics` gained a `domain`
+  column (`qa` | `agents`), topic uniqueness is now per-domain, pipeline/tagging/API
+  are domain-aware, and the dashboard header has a `<select>` to switch domains
+  (persisted to `localStorage`). 6 new sources seeded under `domain='agents'`:
+  r/AI_Agents, r/ClaudeAI, r/LocalLLaMA (Reddit RSS), CrewAI Community Forum (RSS,
+  unverified), MCP GitHub releases (Atom, unverified), and a second `hn_api` source
+  filtered by agent keywords. Two originally-proposed sources (Anthropic Discord,
+  Latent Space Discord) were dropped — no RSS/public API for reading messages, and a
+  bot needs admin access to servers this project doesn't run. Cross-domain topic
+  isolation confirmed locally (see `workflows/tag_topics.md` "Domains"); URL
+  verification for the two unverified `agents` sources is pending, same as several
+  `qa`-domain sources in Phase 2.
 
 ## Open questions / known gaps
 
-- Most non-Reddit/HN source URLs need verification once deployed (see Phase 2).
+- Most non-Reddit/HN source URLs need verification once deployed (see Phase 2),
+  including the `agents`-domain CrewAI forum and MCP GitHub releases URLs (Phase 4).
 - YouTube channel IDs for the 4 named channels weren't resolved (no reliable way to
   look them up from this sandbox) — seeded as disabled with a note; needs a manual
   channel ID lookup before enabling.

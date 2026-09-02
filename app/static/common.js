@@ -58,11 +58,11 @@ function formatRelativeTime(isoString) {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-async function loadLastUpdated(elementId) {
+async function loadLastUpdated(elementId, domain = "qa") {
   const el = document.getElementById(elementId);
   if (!el) return;
   try {
-    const res = await fetch("/api/status");
+    const res = await fetch(`/api/status?domain=${domain}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const status = await res.json();
     el.textContent = `Last updated: ${formatRelativeTime(status.last_ingested_at)}`;

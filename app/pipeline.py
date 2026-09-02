@@ -63,24 +63,36 @@ def _insert_items(db: Session, source_id: int, fetched: list[fetch_source.Fetche
 
 
 def tag_untagged_items(db: Session) -> int:
-    """Tag every item with no item_topics rows yet. See workflows/tag_topics.md."""
+    """Tag every item with no item_topics rows yet. See workflows/tag_topics.md.
+
+    Topics are scoped per source domain ('qa' vs 'agents') — the same label minted
+    in two different domains must not collide into one topic, so existing_labels and
+    topic creation/matching are both kept separate per domain."""
     untagged = db.scalars(
         select(Item).where(~Item.id.in_(select(ItemTopic.item_id)))
     ).all()
     if not untagged:
         return 0
 
-    existing_labels = list(db.scalars(select(Topic.label)).all())
+    source_domains = dict(db.execute(select(Source.id, Source.domain)).all())
+    existing_labels_by_domain: dict[str, list[str]] = {}
     tagged_count = 0
 
     for item in untagged:
+        domain = source_domains.get(item.source_id, "qa")
+        if domain not in existing_labels_by_domain:
+            existing_labels_by_domain[domain] = list(
+                db.scalars(select(Topic.label).where(Topic.domain == domain)).all()
+            )
+        existing_labels = existing_labels_by_domain[domain]
+
         try:
-            result = claude_tag_topics.tag(item.title, item.summary, existing_labels)
+            result = claude_tag_topics.tag(item.title, item.summary, existing_labels, domain=domain)
         except Exception:
             logger.exception("tagging failed for item %s", item.id)
             continue
 
-        topic_ids = {_get_or_create_topic(db, label, existing_labels).id for label in result.topics}
+        topic_ids = {_get_or_create_topic(db, label, existing_labels, domain).id for label in result.topics}
         if topic_ids:
             stmt = (
                 insert(ItemTopic)
@@ -96,12 +108,12 @@ def tag_untagged_items(db: Session) -> int:
     return tagged_count
 
 
-def _get_or_create_topic(db: Session, label: str, existing_labels: list[str]) -> Topic:
+def _get_or_create_topic(db: Session, label: str, existing_labels: list[str], domain: str) -> Topic:
     match = next((existing for existing in existing_labels if existing.lower() == label.lower()), None)
     if match is not None:
-        return db.scalar(select(Topic).where(Topic.label == match))
+        return db.scalar(select(Topic).where(Topic.label == match, Topic.domain == domain))
 
-    topic = Topic(label=label)
+    topic = Topic(label=label, domain=domain)
     db.add(topic)
     db.flush()
     existing_labels.append(label)

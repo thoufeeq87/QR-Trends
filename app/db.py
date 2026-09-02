@@ -39,11 +39,13 @@ class Source(Base):
     config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     priority: Mapped[str] = mapped_column(String, nullable=False, default="normal")
+    domain: Mapped[str] = mapped_column(String, nullable=False, default="qa")
     last_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         CheckConstraint("type IN ('rss','reddit_json','hn_api','youtube_atom','manual')", name="sources_type_check"),
+        CheckConstraint("domain IN ('qa','agents')", name="sources_domain_check"),
     )
 
 
@@ -64,8 +66,14 @@ class Topic(Base):
     __tablename__ = "topics"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    label: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    domain: Mapped[str] = mapped_column(String, nullable=False, default="qa")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("label", "domain", name="topics_label_domain_key"),
+        CheckConstraint("domain IN ('qa','agents')", name="topics_domain_check"),
+    )
 
 
 class ItemTopic(Base):

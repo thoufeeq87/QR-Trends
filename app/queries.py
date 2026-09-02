@@ -17,14 +17,14 @@ RECENT_ITEMS_LIMIT = 3
 DETAIL_RECENT_ITEMS_LIMIT = 10
 
 
-def get_topic_cards(db: Session, section: str, limit: int = 30, offset: int = 0) -> dict:
+def get_topic_cards(db: Session, section: str, domain: str = "qa", limit: int = 30, offset: int = 0) -> dict:
     trend_labels = SECTION_TREND_LABELS[section]
 
     # Fetch one extra row to cheaply detect "there are more" without a separate COUNT query.
     trends = (
         db.query(TopicTrend, Topic)
         .join(Topic, Topic.id == TopicTrend.topic_id)
-        .filter(TopicTrend.trend_label.in_(trend_labels))
+        .filter(TopicTrend.trend_label.in_(trend_labels), Topic.domain == domain)
         .order_by(TopicTrend.current_count.desc(), Topic.id)
         .offset(offset)
         .limit(limit + 1)
@@ -56,8 +56,12 @@ def get_topic_card(db: Session, topic_id: int) -> dict | None:
     return _build_card(trend, topic, sparklines, recent_items)
 
 
-def get_last_ingested_at(db: Session) -> datetime | None:
-    return db.query(func.max(Source.last_fetched_at)).filter(Source.enabled.is_(True)).scalar()
+def get_last_ingested_at(db: Session, domain: str = "qa") -> datetime | None:
+    return (
+        db.query(func.max(Source.last_fetched_at))
+        .filter(Source.enabled.is_(True), Source.domain == domain)
+        .scalar()
+    )
 
 
 def _build_card(trend: TopicTrend, topic: Topic, sparklines: dict, recent_items: dict) -> dict:

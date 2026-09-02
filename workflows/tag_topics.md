@@ -1,21 +1,40 @@
 # Workflow: Tag Topics
 
 ## Objective
-Assign 1-3 canonical QA/testing topic labels, and a short (~10-word) plain-language
-summary, to every item that doesn't have either yet, using Claude.
+Assign 1-3 canonical topic labels, and a short (~10-word) plain-language summary, to
+every item that doesn't have either yet, using Claude — scoped to that item's domain
+(`qa` or `agents`, from its source; see "Domains" below).
 
 ## Required inputs
 - Items from `items` with no rows in `item_topics`.
-- The current list of `topics.label` (existing canonical labels), so Claude can reuse
-  them instead of minting near-duplicates ("Playwright" vs "playwright automation").
+- The current list of `topics.label` **for that item's domain** (existing canonical
+  labels, scoped by `topics.domain`), so Claude can reuse them instead of minting
+  near-duplicates ("Playwright" vs "playwright automation") — and so a label from the
+  wrong domain is never offered as something to reuse.
 - `ANTHROPIC_API_KEY` env var.
 
+## Domains
+
+`topics.label` is unique per `(label, domain)`, not globally (`migrations/
+003_add_domain_scoping.sql`) — the same label minted from a `qa` item and an `agents`
+item (e.g. "Claude") must land in two separate `topics` rows, not collide into one and
+mix unrelated mention counts. `app/pipeline.py`'s `tag_untagged_items()` looks up each
+item's source domain, keeps `existing_labels` as a **separate list per domain**
+(refreshed in place as new topics are created within a run, same as before — just
+keyed by domain now), and passes `domain` into `tag()`. `_get_or_create_topic()`
+matches/creates topics scoped to that domain.
+
 ## Tool
-`tools/claude_tag_topics.py` — `tag(title, summary, existing_labels) -> TopicExtraction`
-(`.topics: list[str]`, `.summary: str`). One Claude call produces both outputs — the
-summary isn't a second API call, just a second field on the same structured response.
-Uses `client.messages.parse()` with a Pydantic output schema (Structured Outputs) so
-the response is guaranteed-valid JSON, not a hand-parsed free-text reply.
+`tools/claude_tag_topics.py` — `tag(title, summary, existing_labels, domain) ->
+TopicExtraction` (`.topics: list[str]`, `.summary: str`). One Claude call produces
+both outputs — the summary isn't a second API call, just a second field on the same
+structured response. Uses `client.messages.parse()` with a Pydantic output schema
+(Structured Outputs) so the response is guaranteed-valid JSON, not a hand-parsed
+free-text reply. `domain` selects between two system prompt templates
+(`DOMAIN_CONTEXT` dict): a QA/testing-focused one and an AI-agents-focused one
+(topics like "MCP servers", "multi-agent orchestration", framework names, agent
+evals) — both share the same instructions and output schema, just different
+domain description/examples text.
 
 Model: `claude-opus-5`. This is a per-item call at moderate daily volume (13 sources'
 worth of new items); if the Anthropic bill from this step becomes a concern once real
@@ -23,14 +42,17 @@ volume is visible, the model is a single named constant in
 `tools/claude_tag_topics.py` — reconsider deliberately, don't downgrade silently.
 
 ## Steps
-1. For each untagged item, call `tag(item.title, item.summary, existing_labels)`.
+1. For each untagged item, look up its source's `domain`, then call
+   `tag(item.title, item.summary, existing_labels_for_that_domain, domain)`.
 2. `tools/claude_tag_topics.py` returns 1-3 short topic label strings plus a ~10-word
    summary.
-3. Match each returned label case-insensitively against existing `topics.label` rows;
-   reuse the existing topic if it matches, otherwise insert a new `topics` row.
+3. Match each returned label case-insensitively against existing `topics.label` rows
+   **within that domain**; reuse the existing topic if it matches, otherwise insert a
+   new `topics` row with that `domain`.
 4. Insert `item_topics` links (`ON CONFLICT (item_id, topic_id) DO NOTHING`).
-5. `existing_labels` is refreshed after each new topic is created within a run, so
-   later items in the same batch can reuse topics minted earlier in that same run.
+5. `existing_labels` (per domain) is refreshed after each new topic is created within
+   a run, so later items in the same batch can reuse topics minted earlier in that
+   same run, without ever leaking across domains.
 6. Store the summary on `items.short_summary` — only when at least one topic was
    found (an item with zero relevant topics also gets no summary; nothing links to
    it for display anyway).

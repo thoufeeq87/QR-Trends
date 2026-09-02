@@ -2,30 +2,37 @@
 an upsert by `name`) via `python -m tools.seed_sources`.
 
 URL confidence varies a lot across these sources (the original 13 from the spec, plus
-extra testing-tool subreddits added later). This sandbox's network egress is
-restricted to package registries + api.anthropic.com (see workflows/deploy_railway.md
-"Verifying source URLs"), so none of these were live-verified during development —
-only Reddit's JSON API and Hacker News' Firebase API are stable, documented public
-APIs I'm confident in without a live check. Everything else is seeded with its most
-likely URL (WordPress sites overwhelmingly expose /feed/) but `enabled=False` and
-`config.verified=False` until someone (or the deployed app's ingest logs) confirms it
-actually resolves. A dead feed is harmless either way — tools/fetch_source.py catches
-per-source failures — but shipping a source as "enabled" implies it's expected to
-work, which isn't true yet for the unverified ones.
+extra testing-tool subreddits added later, plus a second tracked domain — "AI Agent
+Pulse" — added after that). This sandbox's network egress is restricted to package
+registries + api.anthropic.com (see workflows/deploy_railway.md "Verifying source
+URLs"), so none of these were live-verified during development — only Reddit's JSON
+API and Hacker News' Firebase API are stable, documented public APIs I'm confident in
+without a live check. Everything else is seeded with its most likely URL (WordPress
+sites overwhelmingly expose /feed/) but `enabled=False` and `config.verified=False`
+until someone (or the deployed app's ingest logs) confirms it actually resolves. A
+dead feed is harmless either way — tools/fetch_source.py catches per-source failures
+— but shipping a source as "enabled" implies it's expected to work, which isn't true
+yet for the unverified ones.
+
+Every source belongs to exactly one `domain` ('qa' or 'agents' — see
+workflows/ingest_sources.md and migrations/003_add_domain_scoping.sql). Topics are
+scoped per domain, so a source's domain determines which domain's topic pool its
+items get tagged into.
 """
 
 from sqlalchemy.dialects.postgresql import insert
 
 from app.db import SessionLocal, Source, ensure_schema
 
-# (name, type, url, config, enabled)
-SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
+# (name, type, url, config, enabled, domain)
+SOURCES: list[tuple[str, str, str | None, dict, bool, str]] = [
     (
         "Ministry of Testing",
         "rss",
         "https://www.ministryoftesting.com/rss",
         {"verified": False},
         True,
+        "qa",
     ),
     (
         "Reddit r/QualityAssurance",
@@ -40,6 +47,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
             "If ingest logs show this failing too, disable it.",
         },
         True,
+        "qa",
     ),
     (
         "Reddit r/softwaretesting",
@@ -54,6 +62,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
             "someone completes that signup and this RSS fallback doesn't pan out.",
         },
         True,
+        "qa",
     ),
     (
         "Reddit r/selenium",
@@ -65,6 +74,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
             "the other Reddit sources, unverified without live access.",
         },
         True,
+        "qa",
     ),
     (
         "Reddit r/Appium",
@@ -76,6 +86,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
             "approach as the other Reddit sources, unverified without live access.",
         },
         True,
+        "qa",
     ),
     (
         "Reddit r/Cypress",
@@ -87,6 +98,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
             "other Reddit sources, unverified without live access.",
         },
         True,
+        "qa",
     ),
     (
         "Software Testing Help",
@@ -94,6 +106,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         "https://www.softwaretestinghelp.com/feed/",
         {"verified": False},
         True,
+        "qa",
     ),
     (
         "Guru99",
@@ -101,6 +114,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         "https://www.guru99.com/feed",
         {"verified": False},
         True,
+        "qa",
     ),
     (
         "TestGuild Blog",
@@ -108,6 +122,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         "https://testguild.com/feed/",
         {"verified": False},
         True,
+        "qa",
     ),
     (
         "TestGuild Podcast",
@@ -115,6 +130,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         None,
         {"verified": False, "note": "find the actual podcast feed URL (Libsyn/Apple Podcasts) before enabling"},
         False,
+        "qa",
     ),
     (
         "StickyMinds",
@@ -122,6 +138,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         "https://www.stickyminds.com/rss.xml",
         {"verified": False},
         True,
+        "qa",
     ),
     (
         "BrowserStack Blog",
@@ -129,6 +146,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         "https://www.browserstack.com/blog/feed/",
         {"verified": False},
         True,
+        "qa",
     ),
     (
         "Sauce Labs Blog",
@@ -136,6 +154,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         "https://saucelabs.com/blog/feed",
         {"verified": False},
         True,
+        "qa",
     ),
     (
         "The Test Tribe",
@@ -143,6 +162,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         None,
         {"note": "no confirmed RSS feed — low-frequency manual check per original spec"},
         False,
+        "qa",
     ),
     (
         "Hacker News (QA/testing keywords)",
@@ -150,6 +170,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         None,
         {"keywords": ["testing", "QA", "test automation", "quality assurance"], "verified": True},
         True,
+        "qa",
     ),
     (
         "Software Testing Weekly",
@@ -157,6 +178,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         None,
         {"note": "no confirmed RSS feed for the newsletter — recheck periodically"},
         False,
+        "qa",
     ),
     (
         "YouTube: Raghav Pal (Automation Step by Step)",
@@ -164,6 +186,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         None,
         {"channel_id": None, "note": "needs channel ID lookup before enabling"},
         False,
+        "qa",
     ),
     (
         "YouTube: QAShahin",
@@ -171,6 +194,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         None,
         {"channel_id": None, "note": "needs channel ID lookup before enabling"},
         False,
+        "qa",
     ),
     (
         "YouTube: ExecuteAutomation",
@@ -178,6 +202,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         None,
         {"channel_id": None, "note": "needs channel ID lookup before enabling"},
         False,
+        "qa",
     ),
     (
         "YouTube: Testing Academy",
@@ -185,6 +210,7 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         None,
         {"channel_id": None, "note": "needs channel ID lookup before enabling"},
         False,
+        "qa",
     ),
     (
         "ISTQB",
@@ -192,6 +218,85 @@ SOURCES: list[tuple[str, str, str | None, dict, bool]] = [
         None,
         {"note": "no RSS — weekly manual check, lowest priority per original spec"},
         False,
+        "qa",
+    ),
+    # --- AI Agent Pulse ("agents" domain) ---
+    # Of the 6 sources originally proposed, 2 were dropped: Anthropic Discord and
+    # Latent Space Discord have no RSS/public API for reading messages, and a bot
+    # needs admin access to servers this project doesn't run. The other 4 use the
+    # same fetch mechanisms already proven for the "qa" domain, plus one bonus
+    # (Hacker News filtered by agent keywords) that's zero new code.
+    (
+        "Reddit r/AI_Agents",
+        "rss",
+        "https://www.reddit.com/r/AI_Agents/new/.rss",
+        {
+            "verified": False,
+            "note": "same Reddit RSS approach already working for the qa-domain "
+            "subreddits, unverified without live access.",
+        },
+        True,
+        "agents",
+    ),
+    (
+        "Reddit r/ClaudeAI",
+        "rss",
+        "https://www.reddit.com/r/ClaudeAI/new/.rss",
+        {
+            "verified": False,
+            "note": "same Reddit RSS approach already working for the qa-domain "
+            "subreddits, unverified without live access.",
+        },
+        True,
+        "agents",
+    ),
+    (
+        "Reddit r/LocalLLaMA",
+        "rss",
+        "https://www.reddit.com/r/LocalLLaMA/new/.rss",
+        {
+            "verified": False,
+            "note": "same Reddit RSS approach already working for the qa-domain "
+            "subreddits, unverified without live access.",
+        },
+        True,
+        "agents",
+    ),
+    (
+        "CrewAI Community Forum",
+        "rss",
+        "https://community.crewai.com/latest.rss",
+        {
+            "verified": False,
+            "note": "guessed Discourse-standard '/latest.rss' path — CrewAI's forum "
+            "looked Discourse-based but this wasn't live-verified. Let ingest logs "
+            "confirm or correct it.",
+        },
+        True,
+        "agents",
+    ),
+    (
+        "Model Context Protocol (GitHub releases)",
+        "rss",
+        "https://github.com/modelcontextprotocol/modelcontextprotocol/releases.atom",
+        {
+            "verified": False,
+            "note": "GitHub's public per-repo releases Atom feed, no auth needed. "
+            "Repo name/path wasn't live-verified — let ingest logs confirm.",
+        },
+        True,
+        "agents",
+    ),
+    (
+        "Hacker News (AI agent keywords)",
+        "hn_api",
+        None,
+        {
+            "keywords": ["AI agent", "agentic", "MCP", "multi-agent", "LangChain", "LangGraph"],
+            "verified": True,
+        },
+        True,
+        "agents",
     ),
 ]
 
@@ -202,13 +307,21 @@ def seed() -> None:
     # `sources` table may not exist yet on a first deploy without this.
     db = SessionLocal()
     try:
-        for name, type_, url, config, enabled in SOURCES:
+        for name, type_, url, config, enabled, domain in SOURCES:
             stmt = (
                 insert(Source)
-                .values(name=name, type=type_, url=url, config=config, enabled=enabled, priority="normal")
+                .values(
+                    name=name,
+                    type=type_,
+                    url=url,
+                    config=config,
+                    enabled=enabled,
+                    priority="normal",
+                    domain=domain,
+                )
                 .on_conflict_do_update(
                     index_elements=["name"],
-                    set_={"type": type_, "url": url, "config": config, "enabled": enabled},
+                    set_={"type": type_, "url": url, "config": config, "enabled": enabled, "domain": domain},
                 )
             )
             db.execute(stmt)

@@ -15,6 +15,7 @@ from app.queries import SECTION_TREND_LABELS, get_last_ingested_at, get_topic_ca
 from app.schemas import IngestSummary, StatusResponse, TopicCard, TopicSection
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+VALID_DOMAINS = {"qa", "agents"}
 
 app = FastAPI(title="QA Pulse")
 
@@ -55,19 +56,25 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 
 @app.get("/api/status", response_model=StatusResponse)
-def status(db: Session = Depends(get_db)) -> dict:
-    return {"last_ingested_at": get_last_ingested_at(db)}
+def status(domain: str = "qa", db: Session = Depends(get_db)) -> dict:
+    if domain not in VALID_DOMAINS:
+        raise HTTPException(status_code=400, detail=f"domain must be one of {sorted(VALID_DOMAINS)}")
+    return {"last_ingested_at": get_last_ingested_at(db, domain=domain)}
 
 
 @app.get("/api/topics", response_model=TopicSection)
-def list_topics(section: str, limit: int = 30, offset: int = 0, db: Session = Depends(get_db)) -> dict:
+def list_topics(
+    section: str, domain: str = "qa", limit: int = 30, offset: int = 0, db: Session = Depends(get_db)
+) -> dict:
     if section not in SECTION_TREND_LABELS:
         raise HTTPException(status_code=400, detail=f"section must be one of {list(SECTION_TREND_LABELS)}")
+    if domain not in VALID_DOMAINS:
+        raise HTTPException(status_code=400, detail=f"domain must be one of {sorted(VALID_DOMAINS)}")
     if not (1 <= limit <= 100):
         raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
     if offset < 0:
         raise HTTPException(status_code=400, detail="offset must be >= 0")
-    return get_topic_cards(db, section, limit=limit, offset=offset)
+    return get_topic_cards(db, section, domain=domain, limit=limit, offset=offset)
 
 
 @app.get("/api/topics/{topic_id}", response_model=TopicCard)

@@ -36,8 +36,32 @@ header {
 }
 
 header h1 {
-    margin: 0 0 0.25rem;
+    margin: 0;
     font-size: 1.5rem;
+}
+
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0 0 0.25rem;
+}
+
+#domain-select {
+    background: var(--card-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+#domain-select:focus-visible {
+    outline: 2px solid var(--accent-new);
+    outline-offset: 2px;
 }
 
 header p {
