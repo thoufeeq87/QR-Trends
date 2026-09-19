@@ -80,8 +80,11 @@ def _sparklines_batch(db: Session, topic_ids: list[int]) -> dict[int, list[dict]
     if not topic_ids:
         return {}
 
+    # Bucketed by fetched_at (when QA Pulse first saw the item), not published_at,
+    # so the sparkline's week-by-week shape matches what classify_trend.py's
+    # current/prior counts are actually measuring — see tools/classify_trend.py.
     since = datetime.now(timezone.utc) - timedelta(weeks=SPARKLINE_WEEKS)
-    week_start = func.date_trunc("week", Item.published_at)
+    week_start = func.date_trunc("week", Item.fetched_at)
 
     rows = (
         db.query(
@@ -90,7 +93,7 @@ def _sparklines_batch(db: Session, topic_ids: list[int]) -> dict[int, list[dict]
             func.count(func.distinct(Item.id)).label("count"),
         )
         .join(Item, Item.id == ItemTopic.item_id)
-        .filter(ItemTopic.topic_id.in_(topic_ids), Item.published_at >= since)
+        .filter(ItemTopic.topic_id.in_(topic_ids), Item.fetched_at >= since)
         .group_by(ItemTopic.topic_id, week_start)
         .order_by(ItemTopic.topic_id, week_start)
         .all()

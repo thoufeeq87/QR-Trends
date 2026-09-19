@@ -1,4 +1,12 @@
-"""Recompute topic_trends. See workflows/classify_trends.md for the rule."""
+"""Recompute topic_trends. See workflows/classify_trends.md for the rule.
+
+Windows key off `Item.fetched_at` (when QA Pulse itself first saw the item), not
+`Item.published_at` (the source's own publish date) — a backlogged RSS/Reddit item
+published weeks ago but ingested today is "new to us" today, not evidence of a
+declining topic. Using `published_at` here made every topic's very first-ever
+classification unreliable: a quiet feed's "newest" post is often older than 7 days,
+so it landed straight in the "prior" bucket with nothing in "current," reading as
+"declining" on day one instead of "new"."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -26,7 +34,7 @@ def recompute_all(db: Session) -> int:
         for row in db.query(Topic.id)
         .join(ItemTopic, ItemTopic.topic_id == Topic.id)
         .join(Item, Item.id == ItemTopic.item_id)
-        .filter(Item.published_at >= prior_since)
+        .filter(Item.fetched_at >= prior_since)
         .distinct()
         .all()
     ]
@@ -55,7 +63,7 @@ def _count_mentions(db: Session, topic_id: int, since: datetime, until: datetime
     return (
         db.query(func.count(func.distinct(Item.id)))
         .join(ItemTopic, ItemTopic.item_id == Item.id)
-        .filter(ItemTopic.topic_id == topic_id, Item.published_at >= since, Item.published_at < until)
+        .filter(ItemTopic.topic_id == topic_id, Item.fetched_at >= since, Item.fetched_at < until)
         .scalar()
         or 0
     )
