@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tsukiyo OS</string>
+    <!-- CHANGE THIS to your own site address (keep the https:// and the / at the end) -->
+    <string name="site_url">https://YOUR-SITE.netlify.app/</string>
+</resources>
