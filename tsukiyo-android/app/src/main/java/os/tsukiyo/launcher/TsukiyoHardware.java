@@ -231,6 +231,19 @@ public class TsukiyoHardware {
                 o.put("health", health == BatteryManager.BATTERY_HEALTH_GOOD ? "good" : health == BatteryManager.BATTERY_HEALTH_OVERHEAT ? "overheat" : health == BatteryManager.BATTERY_HEALTH_DEAD ? "dead" : "unknown");
                 o.put("tempC", b.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10.0);
                 o.put("voltage", b.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0));
+                o.put("cycles", -1);
+                o.put("healthPct", -1);
+                o.put("chargeEtaMs", -1);
+                BatteryManager bm = (BatteryManager) act.getSystemService(Context.BATTERY_SERVICE);
+                if (Build.VERSION.SDK_INT >= 28 && bm != null) o.put("chargeEtaMs", bm.computeChargeTimeRemaining());
+                if (Build.VERSION.SDK_INT >= 34) {
+                    int cyc = b.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1);
+                    o.put("cycles", cyc);
+                    if (bm != null) {
+                        int soh = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATE_OF_HEALTH);   // 1..100, or a huge negative number when this phone does not share it
+                        o.put("healthPct", soh > 0 && soh <= 100 ? soh : -1);
+                    }
+                }
             }
         } catch (Exception e) {
             // report what we have
