@@ -19,6 +19,10 @@ import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkSpecifier;
 import android.os.Build;
 import android.content.ContentValues;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
+import java.io.ByteArrayOutputStream;
 import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Environment;
@@ -279,6 +283,26 @@ public class TsukiyoHardware {
             return pkg != null && !pkg.isEmpty() && act.getPackageManager().getLaunchIntentForPackage(pkg) != null;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+
+    /** The real, current icon of an installed app as a base64 PNG (empty text when it is not installed). */
+    @JavascriptInterface
+    public String appIcon(String pkg) {
+        try {
+            if (pkg == null || pkg.isEmpty()) return "";
+            Drawable d = act.getPackageManager().getApplicationIcon(pkg);
+            int size = 128;
+            Bitmap bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(bmp);
+            d.setBounds(0, 0, size, size);
+            d.draw(c);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, out);
+            return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception e) {
+            return "";
         }
     }
 
