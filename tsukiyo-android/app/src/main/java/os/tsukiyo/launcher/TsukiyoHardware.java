@@ -306,6 +306,19 @@ public class TsukiyoHardware {
         }
     }
 
+
+    /** Opens the official web version of an app full screen, inside Tsukiyo OS (a separate screen of this app). */
+    @JavascriptInterface
+    public void openWebApp(final String url, final String title) {
+        if (url == null || !url.startsWith("https://")) return;
+        act.runOnUiThread(() -> {
+            Intent i = new Intent(act, WebAppActivity.class);
+            i.putExtra("url", url);
+            i.putExtra("title", title);
+            act.startActivity(i);
+        });
+    }
+
     /** Starts an installed app. Returns "launched", "missing" (not installed) or "error". */
     @JavascriptInterface
     public String launchApp(final String pkg) {
