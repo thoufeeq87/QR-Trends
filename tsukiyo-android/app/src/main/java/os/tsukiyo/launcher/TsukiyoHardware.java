@@ -271,6 +271,46 @@ public class TsukiyoHardware {
         }
     }
 
+
+    /** True when the app with this package name is installed. */
+    @JavascriptInterface
+    public boolean appInstalled(String pkg) {
+        try {
+            return pkg != null && !pkg.isEmpty() && act.getPackageManager().getLaunchIntentForPackage(pkg) != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Starts an installed app. Returns "launched", "missing" (not installed) or "error". */
+    @JavascriptInterface
+    public String launchApp(final String pkg) {
+        try {
+            final Intent i = pkg == null ? null : act.getPackageManager().getLaunchIntentForPackage(pkg);
+            if (i == null) return "missing";
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            act.runOnUiThread(() -> act.startActivity(i));
+            return "launched";
+        } catch (Exception e) {
+            return "error";
+        }
+    }
+
+    /** Opens the Google Play page of an app so it can be installed. */
+    @JavascriptInterface
+    public void openStore(final String pkg) {
+        act.runOnUiThread(() -> {
+            try {
+                act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + Uri.encode(pkg))));
+            } catch (Exception e) {
+                try {
+                    act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + Uri.encode(pkg))));
+                } catch (Exception ignored) {
+                }
+            }
+        });
+    }
+
     private void reply(String ssid, boolean ok, String error) {
         try {
             JSONObject o = new JSONObject();
